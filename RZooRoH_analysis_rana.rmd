@@ -1,0 +1,137 @@
+---
+title: "RZooRoH_analysis_rana"
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(RZooRoH)
+library(tidyverse)
+library(ggplot2)
+library(stringr)
+library(RColorBrewer)
+```
+
+First we need to convert the vcf file into the right format using plink. Here is an example of the command I used:
+
+*plink --vcf ~/OneDrive/Documents/byrne_allison/rana-selection/rana-selection/range-merge-sorted-filtered-nosingle-v4_select52.vcf --recode oxford --double-id --out ~/OneDrive/Documents/byrne_allison/rana-selection/rana-selection/range-merge-sorted-filtered-nosingle-v4_select52_forroh --allow-extra-chr*
+
+Then we get a .gen file and and .sample file (that is just the samples listed in order in 1 column, you will probably need to edit the raw output from plink).
+
+
+```{r}
+
+#read in the gen data output from plink
+
+rana_gt <- zoodata(genofile = "./exome/range-merge-sorted-filtered-nosingle-v4_select52_forroh.gen", samplefile = "./exome/range-merge-sorted-filtered-nosingle-v4_select52_forroh.sample" ,zformat = "gp")
+
+```
+
+Doing the calculation for the Rana muscosa genome. This tells us how far back we can detect inbreeding.
+
+```{r}
+#r. muscosa genome is ~9.8Gb and we have 56K snps
+9800000000/66367
+#for frogs we have 1 snp every 147664 bp
+
+#it is best to try and target at least 10 snps for an RoH
+
+(9800000000/66367)*10
+
+#10 snps every 1.5Mb 
+
+#build a zoo model
+
+mix10 <- zoomodel(predefined = TRUE, K=10, krates = c(2,4,8,16,32,64,128,256,512,512))
+
+#run the model
+frog_results_10 <- zoorun(mix10, rana_gt)
+
+```
+
+Now we look at the results 
+
+```{r}
+
+#quick look at different runs using the built-in plotting functions in Rzoroh
+
+zooplot_partitioning(frog_results_10, nonhbd=FALSE, ylim=c(0,1))
+
+zooplot_prophbd(list(Frog = frog_results_10), cols = 'tomato', style = 'boxplot')
+
+hbd <- frog_results_10@hbdseg
+
+zooplot_individuals(frog_results_10)
+```
+
+Now to order by K class identity, exclude the largest class (512) and make a plot
+
+```{r}
+#write out the results for the realized proportion of genome in each class
+write.csv(round(frog_results_10@realized[1:52,],3), "FrogRoH_outputs_52_10.csv")
+
+#read in results in reverse order, exclude the largest class
+roh_out <- read.csv("./exome/FrogRoH_outputs_52_10.csv")[,9:2]
+roh_out <- stack(roh_out)
+
+Pops <- read.csv("./exome/POP_IDs_rw_final.csv")
+roh_out <- cbind(roh_out, Pops)
+
+
+####if you want to order them in a specific way 
+
+colors <- brewer.pal(10,"RdYlGn")
+colors <- colors[9:1]
+
+roh_out_reorder <- roh_out[nrow(roh_out):1,]
+
+
+###### FROH per sample
+Plot_1 <- ggplot(roh_out_reorder, aes(fill=ind, y=values, x=ID)) +
+  geom_bar(stat="identity") +
+  scale_fill_manual(values=colors, labels=c("256","128","64","32","16","8","4","2")) +
+  theme_bw() +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) +
+  labs(x="") + 
+  ylab(expression(F[ROH])) +
+  facet_grid(~ Population, scales = "free_x", space = "free") +
+  scale_y_continuous(limits = c(0,0.8)) +
+   guides(fill=guide_legend(title="krates"))
+
+Plot_1
+
+
+write.csv(round(frog_results_10@hbdseg,3), "FROG_roh_segments_k10.csv")
+
+#for making boxplot
+
+Plot_2 <- ggplot(roh_out_reorder, aes(fill=Population, y=values, x=reorder(ind))) +
+  geom_boxplot() +
+  theme_bw()
+  
+  
+Plot_2
+
+```
+
+Making the srow nrow chart.
+
+
+```{r}
+
+nroh_sroh <- read_csv("./exome/rana_exome_admix_order_52.csv")
+           
+p <- ggplot(nroh_sroh, aes(x=nroh_sroh$SROH_Mb, y=nroh_sroh$NROH, shape=nroh_sroh$K5_group_named)) + geom_point(size=5) +
+  scale_shape_manual(values = c(0,2,10,16,3,4,6,7,8,9)) +
+  theme_bw() 
+  #ylim(c(0,2100))+
+  #xlim(c(0,7500))
+  
+p
+
+
+
+```
+
