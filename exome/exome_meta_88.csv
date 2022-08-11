@@ -1,0 +1,89 @@
+﻿name,date,latitude,longitude,county,site_id,site_id_broad,stage,elevation,sample_type,status
+72336_12_S142,,37.889971,-119.3946434,,Unicorn,,,,,persistent
+72336_15_S143,,37.889971,-119.3946434,,Unicorn,,,,,persistent
+72336_19_S144,,37.889971,-119.3946434,,Unicorn,,,,,persistent
+72808_1_S147,,37.889971,-119.3946434,,Unicorn,,,,,persistent
+72808_3_S145,,37.889971,-119.3946434,,Unicorn,,,,,persistent
+72808_8_S146,,37.889971,-119.3946434,,Unicorn,,,,,persistent
+ARB11-25-11_S188,7-Jul-11,34.31676835,-117.8527752,Los Angeles,Little Rock Creek,Southern,Adult,NA,tissue,
+ARB11-37-22_S187,25-Aug-11,34.31676835,-117.8527752,Los Angeles,Little Rock Creek,Southern,Adult,NA,tissue,
+ARB12-68-20_S181,3-Jul-12,34.33841071,-117.8427814,Los Angeles,South Fork Big Rock Creek,Southern,NA,NA,tissue,
+ARB12-68-40_S182,3-Jul-12,34.33841071,-117.8427814,Los Angeles,South Fork Big Rock Creek,Southern,Adult,NA,tissue,
+ARB17-015-51_004_S189,26-Sep-17,34.27076951,-117.2448971,San Bernardino,East Fork City Creek,Southern,Metamorph,NA,tissue,
+ARB17-015-51_005_S190,26-Sep-17,34.27076951,-117.2448971,San Bernardino,East Fork City Creek,Southern,Metamorph,NA,tissue,
+CAS175008_S169,28-Jun-90,33.88671923,-116.8004226,Riverside,Fuller Mill Creek,Southern,Adult,NA,tissue,
+CAS175009_S168,29-Jun-90,33.88671923,-116.8004226,Riverside,Fuller Mill Creek,Southern,Adult,NA,tissue,
+CAS175010_S174,29-Jun-90,33.88671923,-116.8004226,Riverside,Fuller Mill Creek,Southern,Adult,NA,tissue,
+CAS203394_S173,22-Aug-97,39.48892209,-120.2500199,Sierra,Sierra,Sierra,Juv,6440,tissue,
+CAS206093_S178,5-Aug-98,39.90555824,-120.9507769,Plumas,Plumas,Plumas,Adult,5180,tissue,
+CAS209370_S172,22-Aug-99,39.80743097,-121.2809223,Plumas,Plumas,Plumas,Juv,5760,tissue,
+CAS209404_S171,23-Aug-99,40.01142833,-121.1402847,Plumas,Plumas,Plumas,Juv,6240,tissue,
+CAS209668_S175,21-Jul-99,39.68303645,-120.8850742,Plumas,Plumas,Plumas,Adult,5400,tissue,
+CAS227259_S177,7-Aug-03,39.98744169,-121.1524761,Plumas,Plumas,Plumas,Adult,5920,tissue,
+CAS227639_S170,27-Aug-03,40.12188633,-120.6386418,Plumas,Plumas,Plumas,Adult,5120,tissue,
+CAS227640_S179,27-Aug-03,40.31340272,-120.5414753,Plumas,Plumas,Plumas,Adult,5994,tissue,
+CAS245562_S176,15-Aug-04,38.79628221,-120.1439783,El Dorado,El Dorardo,Plumas,NA,8040,tissue,
+KLB12-79-56_S183,28-Aug-12,34.33617683,-117.925911,Los Angeles,"Devil's Canyon, ANF",Southern,Adult,NA,tissue,
+KLB12-79-64_S184,28-Aug-12,34.41541476,-117.8950959,Los Angeles,"Devil's Canyon, ANF",Southern,Adult,NA,tissue,
+LG12-68-27_S185,3-Jul-12,33.89887544,-116.8170973,Riverside,Dark Canyon,Southern,Adult,NA,tissue,
+LG12-68-32_S186,3-Jul-12,33.73818766,-116.7490371,Riverside,Dark Canyon,Southern,Adult,NA,tissue,
+LG13-80-1_S180,15-Aug-13,33.72851901,-116.6433403,Riverside,Fuller Mill Creek,Southern,Juvenile,NA,tissue,
+MVZ149008_S165,29-Jun-74,38.28715717,-119.5981282,NA,Emigrant,Emigrant,NA,NA,tissue,
+MVZ180160_S164,1-Aug-81,38.61233316,-119.7294381,NA,Emigrant,Emigrant,NA,NA,tissue,
+MVZ197553_S166,26-Jul-85,38.32126416,-119.7325659,NA,Emigrant,Emigrant,NA,NA,tissue,
+MVZ197554_S167,26-Jul-85,38.3291542,-119.588276,NA,Emigrant,Emigrant,NA,NA,tissue,
+MVZ226112_S156,22-Aug-97,36.90825286,-118.5539357,NA,SEKI,SEKI,NA,NA,tissue,
+MVZ230140_S157,29-May-99,34.43789279,-117.7703667,NA,South Fork Big Rock Creek,Southern,NA,NA,tissue,
+MVZ230142_S158,2-Aug-99,34.19969786,-117.2361752,NA,East Fork City Creek,Southern,NA,NA,tissue,
+MVZ230960_S159,14-Oct-99,36.81928314,-118.364403,NA,SEKI,SEKI,NA,NA,tissue,
+MVZ240827_S160,14-Jul-03,37.74921331,-119.7575292,NA,Yosemite,Yosemite,NA,NA,tissue,
+MVZ240831_S161,13-Jul-03,37.74679034,-119.5658409,NA,Yosemite,Yosemite,NA,NA,tissue,
+MVZ250051_S162,19-Aug-05,38.19400832,-119.469876,NA,Yosemite,Yosemite,NA,NA,tissue,
+MVZ250053_S163,5-Aug-05,38.01417531,-119.7182518,NA,Yosemite,Yosemite,NA,NA,tissue,
+RASI1_S191,,37.77981528,-119.3647929,,Hutchings - ZOO,,,,,persistent
+RASI2_S192,,37.77981528,-119.3647929,,Hutchings - ZOO,,,,,persistent
+RASI3_S193,,37.77981528,-119.3647929,,Hutchings - ZOO,,,,,persistent
+RASI4_S194,,37.77981528,-119.3647929,,Hutchings - ZOO,,,,,persistent
+RASI5_S195,,37.77981528,-119.3647929,,Hutchings - ZOO,,,,,persistent
+RKS26100_S100,,36.97728643,-118.6030687,,Swamp Lakes,,,,,persistent
+RKS26102_S105,,36.97728643,-118.6030687,,Swamp Lakes,,,,,persistent
+RKS26103_S104,,36.97728643,-118.6030687,,Swamp Lakes,,,,,persistent
+RKS26108_S103,,36.97728643,-118.6030687,,Swamp Lakes,,,,,persistent
+RKS26110_S101,,36.97728643,-118.6030687,,Swamp Lakes,,,,,persistent
+RKS26113_S102,,36.97728643,-118.6030687,,Swamp Lakes,,,,,persistent
+RKS26631_S119,,37.82571677,-119.2842288,,Gallison,,,,,naive
+RKS26632_S122,,37.82571677,-119.2842288,,Gallison,,,,,naive
+RKS26633_S120,,37.82571677,-119.2842288,,Gallison,,,,,naive
+RKS26635_S121,,37.82571677,-119.2842288,,Gallison,,,,,naive
+RKS26636_S118,,37.82571677,-119.2842288,,Gallison,,,,,naive
+RKS26696_S123,,37.82571677,-119.2842288,,Gallison,,,,,naive
+RKS27726_S111,NA,36.80776901,-118.3265568,NA,Independence,SEKI,NA,NA,buccal,naive
+RKS27728_S106,NA,36.80776901,-118.3265568,NA,Independence,SEKI,NA,NA,buccal,naive
+RKS27733_S110,NA,36.80776901,-118.3265568,NA,Independence,SEKI,NA,NA,buccal,naive
+RKS27737_S108,NA,36.80776901,-118.3265568,NA,Independence,SEKI,NA,NA,buccal,naive
+RKS27740_S107,NA,36.80776901,-118.3265568,NA,Independence,SEKI,NA,NA,buccal,naive
+RKS27741_S109,NA,36.80776901,-118.3265568,NA,Independence,SEKI,NA,NA,buccal,naive
+RKS27762_S149,,37.38640393,-118.8681299,,Fourth Recess,,,,,naive
+RKS27765_S151,,37.38640393,-118.8681299,,Fourth Recess,,,,,naive
+RKS27820_S148,,37.38640393,-118.8681299,,Fourth Recess,,,,,naive
+RKS27822_S153,,37.38640393,-118.8681299,,Fourth Recess,,,,,naive
+RKS27823_S150,,37.38640393,-118.8681299,,Fourth Recess,,,,,naive
+RKS27827_S152,,37.38640393,-118.8681299,,Fourth Recess,,,,,naive
+RKS27889_S136,,36.59004159,-118.4990394,,Milestone,,,,,persistent
+RKS27891_S141,,36.59004159,-118.4990394,,Milestone,,,,,persistent
+RKS27895_S137,,36.59004159,-118.4990394,,Milestone,,,,,persistent
+RKS27903_S138,,36.59004159,-118.4990394,,Milestone,,,,,persistent
+RKS27904_S139,,36.59004159,-118.4990394,,Milestone,,,,,persistent
+RKS27906_S140,,36.59004159,-118.4990394,,Milestone,,,,,persistent
+RKS27920_S131,NA,36.73861451,-118.4533477,NA,Kern Point,SEKI,NA,NA,buccal,naive
+RKS27921_S133,NA,36.73861451,-118.4533477,NA,Kern Point,SEKI,NA,NA,buccal,naive
+RKS27923_S134,NA,36.73861451,-118.4533477,NA,Kern Point,SEKI,NA,NA,buccal,naive
+RKS27924_S130,NA,36.73861451,-118.4533477,NA,Kern Point,SEKI,NA,NA,buccal,naive
+RKS27927_S135,NA,36.73861451,-118.4533477,NA,Kern Point,SEKI,NA,NA,buccal,naive
+RKS28165_S132,NA,36.73861451,-118.4533477,NA,Kern Point,SEKI,NA,NA,buccal,naive
+RKS72996_11_S114,,37.89650152,-119.3216021,,Conness Pond,,,,,persistent
+RKS72996_15_S116,,37.89650152,-119.3216021,,Conness Pond,,,,,persistent
+RKS72996_22_S112,,37.89650152,-119.3216021,,Conness Pond,,,,,persistent
+RKS72996_3_S117,,37.89650152,-119.3216021,,Conness Pond,,,,,persistent
+RKS72996_5_S113,,37.89650152,-119.3216021,,Conness Pond,,,,,persistent
+RKS72996_7_S115,,37.89650152,-119.3216021,,Conness Pond,,,,,persistent

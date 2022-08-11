@@ -1,0 +1,980 @@
+---
+title: "rangewide_vcf_viz"
+output: github_document
+editor_options: 
+  chunk_output_type: console
+---
+
+Once you have a VCF you can read it in and make it a genlight object.  Follow that with making a PCA.  You will need meta data for each sample (sample name and population)
+
+**Note that all lat/long for all sample have been jittered up to 0.1 degrees latitude and longitude to protect this endangered species**
+
+```{r}
+library(tidyverse) #yes
+library(vcfR) #yes
+library(adegenet) #yes 
+library(Imap) #yes
+library(poppr)
+library(ape)
+library(RColorBrewer)
+library(plotly)
+library(ggrepel)
+library(sp)
+library(sf) #yes
+library(USAboundaries) #yes
+library(rnaturalearth)
+library(leaflet)
+library(leaflet.providers)
+library(reshape2) #yes
+library(caroline)
+library(conStruct) #yes
+library(parallel) #yes
+library(foreach) #yes
+library(doParallel) #yes
+library(dartR) #yes
+library(hierfstat) #yes
+library(ggsignif) #yes
+```
+
+read in VCF and match to meta
+
+```{r}
+#read in the fluidigm vcf
+#range.VCF <- read.vcfR("./fluidigm/bcf_calls_filtered_removeind.vcf")
+range.VCF <- read.vcfR("./fluidigm/rana_fluidigm_select74.vcf")
+
+#read in the exome capture vcf
+Exome.VCF <- read.vcfR("./exome/range-merge-sorted-filtered-nosingle-v4_select52_nomissing_prune6.vcf")
+
+#read in file with sample metadata
+range.meta <- read_csv("./fluidigm/range_meta.csv")
+
+Exome.meta <- read.csv("./exome/exome_meta_88.csv", header = T)
+
+flandexome.meta <- read.csv("./fl_and_exome/vcf_meta_flandexome_k6.csv", header = T)
+
+#now for the combined set of samples
+flandexome.VCF <- read.vcfR("./fl_and_exome/freebayes_fl_and_exome_removeindv_filtered2.recode.vcf")
+
+#join in a meta table based on sample ID
+#for exome capture
+colnames(Exome.VCF@gt)[-1] -> vcf.names.exome
+as.data.frame(vcf.names.exome) -> vcf.names.exome
+colnames(vcf.names.exome) <- "name"
+left_join(vcf.names.exome, Exome.meta, by = "name") -> vcf.meta.exome
+
+#check
+all(colnames(Exome.VCF@gt)[-1] == vcf.meta.exome$Sample)
+#mylf_rangewide/rangewide_csv/range_meta.csv
+
+
+#for fluidigm
+colnames(range.VCF@gt)[-1] -> vcf.names
+as.data.frame(vcf.names, stringsAsFactors = F) -> vcf.names
+colnames(vcf.names) <- "swab_id"
+left_join(vcf.names, range.meta, by = "swab_id") -> vcf.meta
+
+all(colnames(range.VCF@gt)[-1] == vcf.meta$swab_id)
+
+#for fl and exome
+colnames(flandexome.VCF@gt)[-1] -> vcf.names.flandexome
+as.data.frame(vcf.names.flandexome) -> vcf.names.flandexome
+colnames(vcf.names.flandexome) <- "swab_id"
+left_join(vcf.names.flandexome, flandexome.meta, by = "swab_id") -> vcf.meta.flandexome
+
+all(colnames(flandexome.VCF@gt)[-1] == vcf.meta.flandexome$swab_id)
+
+
+#set the colors
+cols <- c("#a6cee3",
+"#1f78b4",
+"#b2df8a",
+"#33a02c",
+"#fb9a99",
+"#e31a1c",
+"#fdbf6f",
+"#ff7f00",
+"#cab2d6")
+
+cols5 <- c("#1f78b4",
+"#33a02c",
+"#e31a1c",
+"#fdbf6f",
+"#cab2d6")
+
+cols6 <- c("#1f78b4",
+"#33a02c",
+"#e31a1c",
+"#fdbf6f",
+"#cab2d6",
+"#a6cee3")
+
+cols8 <- c("#1f78b4",
+"#33a02c",
+"#e31a1c",
+"#fdbf6f",
+"#cab2d6",
+"#a6cee3",
+"#b2df8a",
+"#ff7f00")
+
+```
+
+Make VCF object a genlight object.  Set populations.  Make PCA.  use the function subpop() to subset you factor levels if you want!
+
+```{r}
+#for fluidigm
+gl.range <- vcfR2genlight(range.VCF)
+ploidy(gl.range) <- 2
+pop(gl.range) <- vcf.meta$main_locale
+
+#for exome capture
+gl.exome <- vcfR2genlight(Exome.VCF)
+ploidy(gl.exome) <- 2
+pop(gl.exome) <- vcf.meta.exome$site_id
+
+#for fl and exome
+gl.flandexome <- vcfR2genlight(flandexome.VCF)
+ploidy(gl.flandexome) <- 2
+pop(gl.flandexome) <- vcf.meta.flandexome$species
+
+# for fluidigm
+pca_fl <- glPca(gl.range, nf = 5)
+barplot(100*pca_fl$eig/sum(pca_fl$eig), col = heat.colors(50), main="PCA Eigenvalues")
+title(ylab="Percent of variance\nexplained", line = 2)
+title(xlab="Eigenvalues", line = 1)
+
+pca.scores_fl <- as.data.frame(pca_fl$scores)
+pca.scores_fl$pop <- vcf.meta$species
+
+
+pca <- ggplot(pca.scores_fl, aes(x=PC1, y=PC2, color = pop)) + 
+  geom_point(size= 3) + 
+  xlab("PC1 (28.1%)") +
+  ylab("PC2 (15.5%)") +
+  scale_color_manual(values = cols) + 
+  #geom_mark_hull(aes(filter = pop == "sierra")) +
+  #geom_mark_hull(aes(filter = pop == "panama")) +
+  #stat_ellipse(level = 0.95, size = 1) +
+  geom_hline(yintercept = 0) + 
+  geom_vline(xintercept = 0) + 
+  #scale_y_reverse() +
+  theme_bw()
+  #theme(legend.position = "none", text = element_text(size=12))
+
+pca
+
+# for exome capture
+pca_e <- glPca(gl.exome, nf = 5)
+barplot(100*pca_e$eig/sum(pca_e$eig), col = heat.colors(50), main="PCA Eigenvalues")
+title(ylab="Percent of variance\nexplained", line = 2)
+title(xlab="Eigenvalues", line = 1)
+
+pca.scores.e <- as.data.frame(pca_e$scores)
+pca.scores.e$pop <- pop(gl.exome)
+
+
+pca_ex <- ggplot(pca.scores.e, aes(x=PC1, y=PC2, color = pop)) + 
+  geom_point(size= 3) + 
+  xlab("PC1 (31.7%)") +
+  ylab("PC2 (17.1%)") +
+  #scale_color_manual(values = cols) + 
+  #geom_mark_hull(aes(filter = pop == "sierra")) +
+  #geom_mark_hull(aes(filter = pop == "panama")) +
+  #stat_ellipse(level = 0.95, size = 1) +
+  geom_hline(yintercept = 0) + 
+  geom_vline(xintercept = 0) + 
+  #scale_y_reverse() +
+  theme_bw()
+  #theme(legend.position = "none", text = element_text(size=12))
+
+pca_ex
+
+# for fluidigm and exome
+pca_fle <- glPca(gl.flandexome, nf = 5)
+barplot(100*pca_fle$eig/sum(pca_fle$eig), col = heat.colors(50), main="PCA Eigenvalues")
+title(ylab="Percent of variance\nexplained", line = 2)
+title(xlab="Eigenvalues", line = 1)
+
+pca.scores.fle <- as.data.frame(pca_fle$scores)
+pca.scores.fle$pop <- pop(gl.flandexome)
+pca.scores.fle$type <- vcf.meta.flandexome$type
+pca.scores.fle$miss <- vcf.meta.flandexome$missing
+
+pca_fle <- ggplot(pca.scores.fle, aes(x=PC1, y=PC2, color = pop)) + 
+  geom_point(size= 3) + 
+  xlab("PC1 (20.8%)") +
+  ylab("PC2 (11.4%)") +
+  #scale_color_manual(values = cols) + 
+  #geom_mark_hull(aes(filter = pop == "sierra")) +
+  #geom_mark_hull(aes(filter = pop == "panama")) +
+  #stat_ellipse(level = 0.95, size = 1) +
+  geom_hline(yintercept = 0) + 
+  geom_vline(xintercept = 0) + 
+  #scale_y_reverse() +
+  theme_bw()
+  #theme(legend.position = "none", text = element_text(size=12))
+
+pca_fle
+
+```
+
+
+DAPC analysis
+```{r}
+#finds clusters in data
+#par(mar=c(3,3,3,3))
+#for fluidigm
+grp_f <- find.clusters(gl.range, max.n.clust=10, n.pca = 30, choose.n.clust = T, criterion = "diffNgroup")
+5
+
+plot(grp_f$Kstat, pch=19, type="b", xlab="K", ylab="BIC")
+
+#for exome
+grp_e <- find.clusters(gl.exome, max.n.clust=10, n.pca = 25, choose.n.clust = T, criterion = "diffNgroup")
+5
+
+plot(grp_e$Kstat, pch=19, type="b", xlab="K", ylab="BIC")
+
+#for fl and exome
+grp_fle <- find.clusters(gl.flandexome, max.n.clust=10, n.pca = 25, choose.n.clust = T, criterion = "diffNgroup")
+5
+
+plot(grp_fle$Kstat, pch=19, type="b", xlab="K", ylab="BIC")
+
+#run with 30 PCs 
+#for fluidigm
+dapc_f <- dapc(gl.range, grp_f$grp, n.pca=30, n.da = 4)
+summary(dapc_f)
+scatter(dapc_f)
+
+#run with 30 PCs
+#for exome
+dapc_e <-dapc(gl.exome, grp_e$grp, n.pca=30, n.da = 4)
+summary(dapc_e)
+scatter(dapc_e)
+
+#for fl and exome
+dapc_fle <-dapc(gl.flandexome, grp_fle$grp, n.pca=30, n.da = 4)
+summary(dapc_fle)
+scatter(dapc_fle)
+
+#now this may be overfitting because we are using so many PCs. So lets find out how many PCs we should use
+
+#then use this to find the optimal number of PCs to use
+temp <- optim.a.score(dapc_f)
+#get 6
+temp <- optim.a.score(dapc_e)
+#get 1
+temp <- optim.a.score(dapc_fle)
+#get 7
+
+#ran this and got the following optimal alpha scores:
+#run the DAPC again now we will just use 2 PCs
+dapc_f<-dapc(gl.range, grp_f$grp, n.pca=6, n.da = 4)
+
+dapc_e<-dapc(gl.exome, grp_e$grp, n.pca=3, n.da = 4)
+
+dapc_fle<-dapc(gl.flandexome, grp_fle$grp, n.pca=7, n.da = 4)
+
+#to explore split
+scatter(dapc_f, scree.da=T, scree.pca=T, posi.leg="topright", posi.pca="topright")
+scatter(dapc_e, scree.da=T, scree.pca=T, posi.leg="topright", posi.pca="topright")
+scatter(dapc_fle, scree.da=T, scree.pca=T, posi.leg="topright", posi.pca="topright")
+
+#to get summary
+summary(dapc_f)
+summary(dapc_e)
+summary(dapc_fle)
+#to see assignment probabilities
+assignplot(dapc_f)
+assignplot(dapc_e)
+assignplot(dapc_fle)
+
+ 
+assign_f <- as_tibble(as.numeric(dapc_f$assign))
+assign_e <- as_tibble(as.numeric(dapc_e$assign))
+assign_fle <- as_tibble(as.numeric(dapc_fle$assign))
+
+
+#join the assignments to the metadata table
+#for fluidigm
+left_join(vcf.names, range.meta, by = "swab_id") -> vcf.meta
+vcf.meta <- cbind(vcf.meta, assign=assign_f$value)
+
+#join the assignments to the metadata table
+#for exome
+left_join(vcf.names.exome, Exome.meta, by = "name") -> vcf.meta.exome
+vcf.meta.exome <- cbind(vcf.meta.exome, assign=assign_e$value)
+
+
+#fix the numbers to match the original DAPC K5 for exome capture
+assign_fle[which(assign_fle==1),] <- 3.1
+assign_fle[which(assign_fle==2),] <- 1.1
+assign_fle[which(assign_fle==3),] <- 5.1
+assign_fle[which(assign_fle==4),] <- 2.1
+assign_fle[which(assign_fle==5),] <- 4.1
+
+assign_f[which(assign_f==1),] <- 3.1
+assign_f[which(assign_f==2),] <- 1.1
+assign_f[which(assign_f==3),] <- 5.1
+assign_f[which(assign_f==4),] <- 2.1
+assign_f[which(assign_f==5),] <- 4.1
+
+left_join(vcf.names.flandexome, flandexome.meta, by = "swab_id") -> vcf.meta.flandexome
+vcf.meta.flandexome <- cbind(vcf.meta.flandexome, assign=assign_fle$value)
+
+#now plot the PCA and color based on DAPC assignments
+#for fluidigm
+pca_f <- ggplot(pca.scores_fl, aes(x=PC1, y=PC2, color = as.factor(vcf.meta$assign))) + 
+  geom_point(size= 3) + 
+  xlab("PC1 (28.1%)") +
+  ylab("PC2 (15.5%)") +
+  scale_color_manual(values = cols6) + 
+  #geom_mark_hull(aes(filter = pop == "sierra")) +
+  #geom_mark_hull(aes(filter = pop == "panama")) +
+  stat_ellipse(level = 0.95, size = 1) +
+  geom_hline(yintercept = 0) + 
+  geom_vline(xintercept = 0) + 
+  #scale_y_reverse() +
+  theme_bw()
+  #theme(legend.position = "none", text = element_text(size=12))
+
+pca_f
+
+#for exome
+pca_ex <- ggplot(pca.scores.e, aes(x=PC1, y=PC2, color = as.factor(vcf.meta.exome$assign))) + 
+  geom_point(size= 3) + 
+  xlab("PC1 (25.8%)") +
+  ylab("PC2 (15.0%)") +
+  scale_color_manual(values = cols6) + 
+  #geom_mark_hull(aes(filter = pop == "sierra")) +
+  #geom_mark_hull(aes(filter = pop == "panama")) +
+  stat_ellipse(level = 0.95, size = 1) +
+  geom_hline(yintercept = 0) + 
+  geom_vline(xintercept = 0) + 
+  #scale_y_reverse() +
+  theme_bw()
+  #theme(legend.position = "none", text = element_text(size=12))
+
+pca_ex
+
+#for fl and exome
+cols6_grey <- cols6
+cols6_grey[1] <- 'grey'
+
+shapes_for_type <- vcf.meta.flandexome$type
+shapes_for_type[which(shapes_for_type=="fl")] <- 16
+shapes_for_type[which(shapes_for_type=="exome")] <- 17
+shapes_for_type <- as.numeric(shapes_for_type)
+
+
+
+
+pca_fle <- ggplot(pca.scores.fle, aes(x=PC1, y=PC2, color = as.factor(vcf.meta.flandexome$assign), shape=type)) + 
+  geom_point(size= 3) + 
+  xlab("PC1 (21.9%)") +
+  ylab("PC2 (11.5%)") +
+  scale_color_manual(values = cols6) + 
+  scale_shape_manual(values = c(17,16))+
+  #geom_mark_hull(aes(filter = pop == "sierra")) +
+  #geom_mark_hull(aes(filter = pop == "panama")) +
+  stat_ellipse(data=pca.scores.fle,aes(x=PC1,y=PC2,color=as.factor(vcf.meta.flandexome$assign), group=as.factor(vcf.meta.flandexome$assign)),level = 0.95, size = 1) +
+  geom_hline(yintercept = 0) + 
+  geom_vline(xintercept = 0) + 
+  #scale_y_reverse() +
+  theme_bw()
+  #theme(legend.position = "none", text = element_text(size=12))
+
+pca_fle
+
+```
+
+Now let's plot the results on the sample map
+
+```{r}
+#get the map data
+nps <- read_sf("./spatial/nps_boundary/nps_boundary.shp") %>% st_transform(crs = 4326) 
+
+species_range <- st_read("./spatial/Rana_muscosa_sierrae.shp")
+
+state_names <- "california"
+park_names <- c("Kings Canyon", "Sequoia", "Yosemite")
+
+parks <- nps %>% filter(PARKNAME %in% park_names) %>% 
+  mutate(lon=map_dbl(geometry, ~st_centroid(.x)[[1]]),
+         lat=map_dbl(geometry, ~st_centroid(.x)[[2]]))
+
+CA_NV <-us_states(resolution = "high", states = state_names) %>%
+  st_transform(crs = 4326)
+
+CA_NV <- st_as_sf(CA_NV)
+
+kings_river <- read_sf("./spatial/kings_river.shp")
+yose_rivers <- read_sf("./spatial/yose_rivers.shp")
+
+species_range_sp <- as_Spatial(species_range)
+parks_sp <- as_Spatial(parks)
+CA_NV_sp <- as_Spatial(CA_NV)
+kings_river_sp <- as_Spatial(kings_river)
+yose_rivers_sp <- as_Spatial(yose_rivers)
+
+#for fluidigm
+#plot base map range and scale
+maps::map(database=species_range_sp, xlim = range(vcf.meta$lon) + c(-3.6,3.8), ylim = range(vcf.meta$lat)+c(-2,2), col="light gray", fill=T, mar=c(2,1,1,1))
+maps::map(database=CA_NV_sp, col="gray", add=T)
+maps::map(database=parks_sp, col="dark gray", add=T, fill=T)
+maps::map.scale(relwidth = 0.15, metric = TRUE, ratio = F, cex=0.5)
+#add the points to the map and color based on DAPC assignment.
+points(x = vcf.meta$longitude, y = vcf.meta$latitude, col = cols6[as.factor(vcf.meta$assign)], pch=16)
+
+#for exome
+#plot base map range and scale
+maps::map(database=species_range_sp, xlim = range(vcf.meta$lon) + c(-3.6,3.8), ylim = range(vcf.meta$lat)+c(-2,2), col="light gray", fill=T, mar=c(2,1,1,1))
+maps::map(database=CA_NV_sp, col="gray", add=T)
+maps::map(database=parks_sp, col="dark gray", add=T, fill=T)
+maps::map.scale(relwidth = 0.15, metric = TRUE, ratio = F, cex=0.5)
+#add the points to the map and color based on DAPC assignment.
+points(x = vcf.meta.exome$longitude, y = vcf.meta.exome$latitude, col = cols6[as.factor(vcf.meta.exome$assign)], pch=16)
+
+#for fl and exome
+#plot base map range and scale
+maps::map(database=species_range_sp, xlim = range(vcf.meta$lon) + c(-3.6,3.8), ylim = range(vcf.meta$lat)+c(-2,2), col="light gray", fill=T, mar=c(2,1,1,1))
+maps::map(database=CA_NV_sp, col="gray", add=T)
+maps::map(database=parks_sp, col="dark gray", add=T, fill=T)
+maps::map.scale(relwidth = 0.15, metric = TRUE, ratio = F, cex=0.5)
+#add the points to the map and color based on DAPC assignment.
+points(x = vcf.meta.flandexome$longitude, y = vcf.meta.flandexome$latitude, col = cols6[as.factor(vcf.meta.flandexome$assign)], pch=shapes_for_type, cex=0.8)
+
+
+#try to zoom in to seki
+seki_sites <- vcf.meta[which(vcf.meta$main_locale=="seki"),]
+
+maps::map(database=species_range_sp, xlim = range(seki_sites$lon) + c(-.5,.5), ylim = range(seki_sites$lat)+c(-.1,.5), col="light gray", fill=T, mar=c(1,1,1,1))
+maps::map(database=CA_NV_sp, col="gray", add=T)
+maps::map(database=parks_sp, col="dark gray", add=T, fill=T)
+maps::map.scale(relwidth = 0.15, metric = TRUE, ratio = F, cex=0.5, y=max(seki_sites$lat)+.4, x=-118.5)
+maps::map(database=kings_river_sp, col="dark blue", fill=F, add=T)
+points(x = vcf.meta.flandexome$longitude, y = vcf.meta.flandexome$latitude, col = cols6[as.factor(vcf.meta.flandexome$assign)], pch=shapes_for_type, cex=2)
+
+#try to zoom in to yose
+yose_sites <- vcf.meta[which(vcf.meta$main_locale=="yose"),]
+
+maps::map(database=species_range_sp, xlim = range(yose_sites$lon) + c(-.5,.5), ylim = range(yose_sites$lat)+c(-.2,.3), col="light gray", fill=T, mar=c(1,1,1,1))
+maps::map(database=CA_NV_sp, col="gray", add=T)
+maps::map(database=parks_sp, col="dark gray", add=T, fill=T)
+maps::map.scale(relwidth = 0.15, metric = TRUE, ratio = F, cex=0.5)
+maps::map(database=yose_rivers_sp, col="dark blue", fill=F, add=T)
+points(x = vcf.meta.flandexome$longitude, y = vcf.meta.flandexome$latitude, col = cols6[as.factor(vcf.meta.flandexome$assign)], pch=shapes_for_type, cex=2)
+
+```
+
+Now let's convert the new rangewide set of 52 exome capture samples to run construct. We can also convert the fluidigm data while we're at it. 
+
+Convert the vcf file I have to nexus using the vcftools --012 flag then to the construct format
+```{r}
+#I first stripped the header and footer from the raw nexus file and replaced the tab separater with a comma. Also no missing data in this dataset. Nsnps = 17,796
+
+nexus <- read.csv(file="./fluidigm/bcf_calls_filtered_removeind_012.csv", header=F,colClasses = "character")
+
+nexus_df <- as_tibble(nexus)
+colnames(nexus_df) <- c("Sample","seq")
+
+#make locus names
+for (i in 1:nchar(nexus_df$seq[1])){
+  if (i==1){
+  loc_names <- paste("Locus",i , sep="")
+  } else {
+  new_name <- paste("Locus",i , sep="")
+  loc_names <- c(loc_names, new_name)
+  }
+}
+
+#parse into a matrix
+new_table <- nexus_df %>% separate(seq, loc_names, sep = seq(1:nchar(nexus_df$seq))) 
+#new_table <- new_table[,-14950]
+new_table_2 <- new_table
+
+#convert 0,1,2 coding to 0, 0.5, 1 coding
+#takes a little while to run
+for(i in 2:ncol(new_table)){
+  for (j in 1:nrow(new_table)){
+    value <- as.numeric(new_table[j,i])
+    new_value <- value/2
+    new_table_2[j,i] <- as.character(new_value)
+  }
+}
+
+#gets rid of sample names
+new_table_3 <- new_table_2[,-1]
+#converts back to numeric
+test <- sapply(new_table_3, as.numeric)
+#converts to data matrix
+new_table_3 <- data.matrix(test)
+
+#replace 1.5 (missing was coded as 3 initially) to NA
+new_table_3 <- na_if(new_table_3,1.5)
+
+```
+
+
+Now let's add in the geographic localities
+
+
+```{r}
+#for exome
+geo <- select(vcf.meta.exome, "latitude", "longitude")
+geo <- data.matrix(geo)
+samples_loc <- select(vcf.meta.exome, "name", lat = "latitude", lon = "longitude", Population = "site_id")
+#for fluidigm
+geo <- select(vcf.meta, "latitude", "longitude")
+geo <- data.matrix(geo)
+samples_loc <- select(vcf.meta, name = "swab_id", lat = "latitude", lon = "longitude", Population = "site_id")
+
+
+#uh oh too much missing data for fluidigm let's try eliminating some of these samples...
+
+count_na_func <- function(x) sum(is.na(x)) 
+count_na <- apply(new_table_3, 1, count_na_func)
+
+badsamps <- which(count_na>5)
+
+new_table_3_trim <- new_table_3[-badsamps,]
+geo_trim <- geo[-badsamps,]
+geo_trim <- data.matrix(geo_trim)
+samples_loc_trim <- samples_loc[-badsamps,]
+
+#read in functions I found here https://eurekastatistics.com/calculating-a-distance-matrix-for-geographic-points-using-r/
+
+ReplaceLowerOrUpperTriangle <- function(m, triangle.to.replace){
+   # If triangle.to.replace="lower", replaces the lower triangle of a square matrix with its upper triangle.
+   # If triangle.to.replace="upper", replaces the upper triangle of a square matrix with its lower triangle.
+
+   if (nrow(m) != ncol(m)) stop("Supplied matrix must be square.")
+   if      (tolower(triangle.to.replace) == "lower") tri <- lower.tri(m)
+   else if (tolower(triangle.to.replace) == "upper") tri <- upper.tri(m)
+   else stop("triangle.to.replace must be set to 'lower' or 'upper'.")
+   m[tri] <- t(m)[tri]
+   return(m)
+}
+
+GeoDistanceInMetresMatrix <- function(df.geopoints){
+   # Returns a matrix (M) of distances between geographic points.
+   # M[i,j] = M[j,i] = Distance between (df.geopoints$lat[i], df.geopoints$lon[i]) and
+   # (df.geopoints$lat[j], df.geopoints$lon[j]).
+   # The row and column names are given by df.geopoints$name.
+
+   GeoDistanceInMetres <- function(g1, g2){
+      # Returns a vector of distances. (But if g1$index > g2$index, returns zero.)
+      # The 1st value in the returned vector is the distance between g1[[1]] and g2[[1]].
+      # The 2nd value in the returned vector is the distance between g1[[2]] and g2[[2]]. Etc.
+      # Each g1[[x]] or g2[[x]] must be a list with named elements "index", "lat" and "lon".
+      # E.g. g1 <- list(list("index"=1, "lat"=12.1, "lon"=10.1), list("index"=3, "lat"=12.1, "lon"=13.2))
+      DistM <- function(g1, g2){
+         require("Imap")
+         return(ifelse(g1$index > g2$index, 0, gdist(lat.1=g1$lat, lon.1=g1$lon, lat.2=g2$lat, lon.2=g2$lon, units="m")))
+      }
+      return(mapply(DistM, g1, g2))
+   }
+
+   n.geopoints <- nrow(df.geopoints)
+
+   # The index column is used to ensure we only do calculations for the upper triangle of points
+   df.geopoints$index <- 1:n.geopoints
+
+   # Create a list of lists
+   list.geopoints <- by(df.geopoints[,c("index", "lat", "lon")], 1:n.geopoints, function(x){return(list(x))})
+
+   # Get a matrix of distances (in metres)
+   mat.distances <- ReplaceLowerOrUpperTriangle(outer(list.geopoints, list.geopoints, GeoDistanceInMetres), "lower")
+
+   # Set the row and column names
+   rownames(mat.distances) <- df.geopoints$name
+   colnames(mat.distances) <- df.geopoints$name
+
+   return(mat.distances)
+}
+
+
+#calculate the distance matrix
+
+distance.mat.m <- GeoDistanceInMetresMatrix(samples_loc_trim)
+distance.mat.km <- distance.mat.m/1000
+
+write.csv(distance.mat.km, file="./fluidigm/geo_dist_construct_trim.csv")
+
+
+
+```
+
+Now that we have our three files lets try to run construct
+
+```{r}
+vignette(topic="run-conStruct",package="conStruct")
+
+my.run_nsp_5_fl <- conStruct(spatial = FALSE, 
+                    K = 5, 
+                    freqs = new_table_3_trim,
+                    geoDist = distance.mat.km, 
+                    coords = geo_trim,
+                    n.iter = 10000,
+                    prefix = "nspK5_fl_10000")
+  
+
+library(doParallel) 
+cl <- makeCluster(detectCores(), type='PSOCK')
+registerDoParallel(cl)
+
+#for mac
+library(parallel)
+library(foreach)
+library(doParallel)
+
+cl <- makeCluster(8,type="FORK")
+registerDoParallel(cl)
+
+
+my.xvals.fl <- x.validation(train.prop = 0.6,
+                         n.reps = 8,
+                         K = 1:8,
+                         freqs = new_table_3_trim,
+                         data.partitions = NULL,
+                         geoDist = distance.mat.km,
+                         coords = geo_trim,
+                         prefix = "xval_fl",
+                         n.iter = 20000,
+                         make.figs = TRUE,
+                         save.files = TRUE,
+                         parallel = TRUE,
+                         n.nodes = 8)
+
+
+stopCluster(cl)
+```
+
+Now let's plot the x.val results
+
+```{r}
+sp.results <- as.matrix(
+                read.table("./xval_exome52/xval_exome52_sp_xval_results.txt",
+                           header = TRUE,
+                           stringsAsFactors = FALSE)
+               )
+nsp.results <- as.matrix(
+                read.table("./xval_exome52/xval_exome52_nsp_xval_results.txt",
+                           header = TRUE,
+                           stringsAsFactors = FALSE)
+               )
+
+# first, get the 95% confidence intervals for the spatial and nonspatial
+#   models over values of K (mean +/- 1.96 the standard error)
+
+sp.CIs <- apply(sp.results,1,function(x){mean(x) + c(-1.96,1.96) * sd(x)/length(x)})
+nsp.CIs <- apply(nsp.results,1,function(x){mean(x) + c(-1.96,1.96) * sd(x)/length(x)})
+
+# then, plot cross-validation results for K=1:3 with 8 replicates
+dev.off()
+par(mfrow=c(1,2))
+plot(rowMeans(sp.results),
+     pch=19,col="green",
+     ylab="predictive accuracy",xlab="values of K",
+     ylim=range(sp.results,nsp.results),
+     main="cross-validation results")
+    points(rowMeans(nsp.results),col="blue",pch=19)
+
+# finally, visualize results for the spatial model
+#   separately with its confidence interval bars
+#
+# note that you could do the same with the spatial model, 
+#   but the confidence intervals don't really show up 
+#   because the differences between predictive accuracies
+#   across values of K are so large.
+
+plot(rowMeans(sp.results),
+     pch=19,col="blue",
+     ylab="predictive accuracy",xlab="values of K",
+     ylim=range(sp.CIs),
+     main="spatial cross-validation results")
+segments(x0 = 1:nrow(sp.results),
+         y0 = sp.CIs[1,],
+         x1 = 1:nrow(sp.results),
+         y1 = sp.CIs[2,],
+         col = "blue",lwd=2)
+
+t.test(sp.results[2,],sp.results[1,],paired=TRUE,alternative="greater")
+
+
+# Loop through output files generated by conStruct 
+#   runs with K=1 through 5 and calculate the 
+#   layer contributions for each layer in each run  
+
+layer.contributions <- matrix(NA,nrow=8,ncol=8)
+
+# load the conStruct.results.Robj and data.block.Robj
+#   files saved at the end of a conStruct run
+load("./xval_exome52/xval_exome52_sp_rep1K1_conStruct.results.Robj")
+load("./xval_exome52/xval_exome52_sp_rep1K1_data.block.Robj")
+
+# calculate layer contributions
+
+layer.contributions[,1] <- c(calculate.layer.contribution(conStruct.results[[1]],data.block),rep(0,7))
+tmp <- conStruct.results[[1]]$MAP$admix.proportions
+
+for(i in 2:8){
+    # load the conStruct.results.Robj and data.block.Robj
+    #   files saved at the end of a conStruct run
+    load(sprintf("./xval_exome52/xval_exome52_sp_rep1K%s_conStruct.results.Robj",i))
+    load(sprintf("./xval_exome52/xval_exome52_sp_rep1K%s_data.block.Robj",i))
+    
+    # match layers up across runs to keep plotting colors consistent
+    #   for the same layers in different runs
+    tmp.order <- match.layers.x.runs(tmp,conStruct.results[[1]]$MAP$admix.proportions)  
+
+    # calculate layer contributions
+    layer.contributions[,i]<-c(calculate.layer.contribution(conStruct.results=conStruct.results[[1]],data.block=data.block,layer.order=tmp.order),rep(0,8-i))
+    tmp <- conStruct.results[[1]]$MAP$admix.proportions[,tmp.order]
+}
+
+#now plot
+dev.off()
+barplot(layer.contributions,
+        col=cols8,
+        xlab="",
+        ylab="layer contributions",
+        names.arg=paste0("K=",1:8))
+
+```
+
+Now let's plot the admixture plots.
+
+```{r}
+load("./xval_exome52/xval_exome52_nsp_rep1K2_conStruct.results.Robj")
+
+admix.props <- conStruct.results$chain_1$MAP$admix.proportions
+
+#get order of samples from tree and read in to order the admixture chart
+#order same as previous ngs admix run
+#for fluidigm
+order_table <- read.csv("./fluidigm/rana_ngsadmix_order_50.csv")
+#for exome
+order_table <- read.csv("./exome/rana_exome_admix_order_52.csv")
+
+admix_order <- as.numeric(order_table$Original.Order)
+
+#make.structure.plot(admix.proportions=admix.props, layer.colors=cols5[1:5])
+
+make.structure.plot(admix.proportions=admix.props, layer.colors=cols6[1:6], sample.order = admix_order)
+
+
+```
+
+Let's try the Fst heat map
+
+```{r}
+
+#for exome
+order_table <- read.csv("./exome/rana_exome_admix_order_52.csv")
+
+order_sorted <- arrange(order_table, by=Original.Order)
+
+gl.exome <- gl.compliance.check(gl.exome)
+
+pop(gl.exome) <- order_sorted$DAPC_K5
+
+
+#check order 
+order_sorted$Sample_ID == gl.exome$ind.names
+pop(gl.exome) <- as_factor(order_sorted$DAPC_K5)
+
+
+gi.exome <- dartR::gl2gi(gl.exome)
+
+range.swab.hierfstat <- hierfstat::genind2hierfstat(gi.exome)
+
+fst_range <- hierfstat::genet.dist(range.swab.hierfstat, method = "Fst")
+
+fst_range_pop <- as.matrix(fst_range)
+
+fst_range_pop <- round(fst_range_pop, 2)
+
+fst_melt <- melt(fst_range_pop)
+
+get_upper_tri<-function(fst_range_pop){
+    fst_range_pop[upper.tri(fst_range_pop)] <- NA
+    return(fst_range_pop)
+}
+
+fst_range_tri <- get_upper_tri(fst_range_pop)
+
+fst_melt <- melt(fst_range_tri, na.rm = TRUE)
+
+ggheatmap <- ggplot(fst_melt, aes(Var1, Var2, fill = value)) +
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "dodgerblue", high = "red",
+   midpoint = 0.2, limit = c(0,0.8), space = "Lab",
+   name=expression(F["ST"])) +
+  theme_minimal()+
+ theme(axis.text.x = element_text(angle = 45, vjust = 1,
+    size = 12, hjust = 1))+
+ coord_fixed()
+
+fst_melt_factor <- fst_melt
+
+fst_melt_factor$Var1 <- factor(fst_melt_factor$Var1)
+fst_melt_factor$Var2 <- factor(fst_melt_factor$Var2)
+
+
+ggheatmap +
+geom_text(aes(Var1, Var2, label = value), color = "black", size = 6) +
+  #scale_x_discrete(breaks = scales::pretty_breaks(n = 5), labels = fst_labels) +
+#scale_y_discrete(breaks = scales::pretty_breaks(n = 5), labels = fst_labels) +
+  xlab("Cluster") +
+  ylab("Cluster") +
+theme(
+  axis.text.x = element_text(size=14,face="bold"),
+  axis.title = element_text(size=16, face = "bold"), 
+  axis.text.y = element_text(size=14,face="bold"), 
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  legend.justification = c(1, 0),
+  legend.position = c(0.6, 0.8),
+  legend.text = element_text(size=14),
+  legend.title = element_text(size=14),
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 8, barheight = 1,
+                title.position = "top", title.hjust = 0.5))
+
+#now let's try with fl and exome data
+
+#check order
+vcf.meta.flandexome$swab_id == gl.flandexome$ind.names
+#reassign pop
+pop(gl.flandexome) <- as_factor(vcf.meta.flandexome$assign)
+
+gi.flandexome <- dartR::gl2gi(gl.flandexome)
+
+flandexome.swab.hierfstat <- hierfstat::genind2hierfstat(gi.flandexome)
+
+fst_flandexome <- hierfstat::genet.dist(flandexome.swab.hierfstat, method = "Fst")
+
+fst_flandexome_pop <- as.matrix(fst_flandexome)
+
+fst_flandexome_pop <- round(fst_flandexome_pop, 2)
+
+fst_flandexome_melt <- melt(fst_flandexome_pop)
+
+get_upper_tri<-function(fst_flandexome_pop){
+    fst_flandexome_pop[upper.tri(fst_flandexome_pop)] <- NA
+    return(fst_flandexome_pop)
+}
+
+fst_flandexome_tri <- get_upper_tri(fst_flandexome_pop)
+
+fst_flandexome_melt <- melt(fst_flandexome_tri, na.rm = TRUE)
+
+ggheatmap_fle <- ggplot(fst_flandexome_melt, aes(Var1, Var2, fill = value)) +
+ geom_tile(color = "white")+
+ scale_fill_gradient2(low = "dodgerblue", high = "red",
+   midpoint = 0.2, limit = c(0,0.8), space = "Lab",
+   name=expression(F["ST"])) +
+  theme_minimal()+
+ theme(axis.text.x = element_text(angle = 45, vjust = 1,
+    size = 12, hjust = 1))+
+ coord_fixed()
+
+fst_melt_fle_factor <- fst_flandexome_melt
+
+fst_melt_fle_factor$Var1 <- factor(fst_melt_fle_factor$Var1)
+fst_melt_fle_factor$Var2 <- factor(fst_melt_fle_factor$Var2)
+
+fst_labels = c("1"="East Yosemite R. sierrae","2"="Northern R. muscosa","3"="Northern R. sierrae","4"="Southern R. muscosa","5"="Southern R. sierrae")
+
+
+ggheatmap_fle +
+geom_text(aes(Var1, Var2, label = value), color = "black", size = 6) +
+  #scale_x_discrete(breaks = scales::pretty_breaks(n = 5), labels = fst_labels) +
+#scale_y_discrete(breaks = scales::pretty_breaks(n = 5), labels = fst_labels) +
+  xlab("Cluster") +
+  ylab("Cluster") +
+theme(
+  axis.text.x = element_text(size=14,face="bold"),
+  axis.title = element_text(size=16, face = "bold"), 
+  axis.text.y = element_text(size=14,face="bold"), 
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  legend.justification = c(1, 0),
+  legend.position = c(0.6, 0.8),
+  legend.text = element_text(size=14),
+  legend.title = element_text(size=14),
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 8, barheight = 1,
+                title.position = "top", title.hjust = 0.5))
+
+
+
+```
+
+Let's plot heterozygostiy by cluster using exome data
+
+```{r}
+order_table$boxorder <- rep(1, nrow(order_table))
+
+order_table[which(order_table$K5_group_named=="Northern R. muscosa"),]$boxorder <- 2
+order_table[which(order_table$K5_group_named=="Southern R. sierrae"),]$boxorder <- 3
+order_table[which(order_table$K5_group_named=="East Yosemite R. sierrae"),]$boxorder <- 4
+order_table[which(order_table$K5_group_named=="Northern R. sierrae"),]$boxorder <- 5
+
+cols <- c("1" = cols6[2], "2" = cols6[1], "3" = cols6[4], "4" = cols6[3], "5" = cols6[5])
+
+het_violin <- ggplot(order_table, aes(x=reorder(K5_group_named,boxorder), y=het_snps, fill=as_factor(DAPC_K5)))+
+         geom_violin()+
+  theme_bw()+
+  scale_fill_manual(values = cols) +
+  scale_x_discrete(guide = guide_axis(angle = 90)) +
+  xlab("Cluster") +
+  ylab("heterozygosity") +
+  geom_jitter(color="black", size=2, alpha=0.9) +
+  theme(legend.position = "none")+
+  ylim(c(0,0.23))
+
+#add stat comparisons
+het_violin+
+  geom_signif(comparisons = list(c("Southern R. muscosa","Northern R. muscosa")), map_signif_level=T)+
+    geom_signif(comparisons = list(c("Southern R. sierrae","East Yosemite R. sierrae")), map_signif_level=T)+
+      geom_signif(comparisons = list(c("East Yosemite R. sierrae","Northern R. sierrae")), map_signif_level=T)+
+  geom_signif(comparisons = list(c("Southern R. muscosa","Northern R. sierrae")), map_signif_level=T, y_position = 0.22)+
+geom_signif(comparisons = list(c("Southern R. muscosa","East Yosemite R. sierrae")), map_signif_level=T, y_position = 0.205)+
+  geom_signif(comparisons = list(c("Southern R. muscosa","Southern R. sierrae")), map_signif_level=T, y_position = 0.19)+
+geom_signif(comparisons = list(c("East Yosemite R. sierrae","Northern R. muscosa")), map_signif_level=T, y_position = 0.175)
+
+```
+
+
+AMOVA
+group by cluster
+
+```{r}
+#for exome
+exome_sample_info <- arrange(order_table, by=Original.Order)
+#CHECK ORDER
+gl.exome@ind.names == exome_sample_info$Sample_ID
+
+pop(gl.exome) <- exome_sample_info$K5_group_named
+
+gl.exome@other$pop_hier <- exome_sample_info %>% select(Group, K5_group_named)
+
+strata(gl.exome) <- gl.exome@other$pop_hier
+gen.exome.amova <- poppr::poppr.amova(x = gl.exome, hier = ~K5_group_named/Group)
+
+set.seed(1999)
+amova.test <- randtest(gen.exome.amova, nrepet = 999)
+
+plot(amova.test)
+
+
+```
+
