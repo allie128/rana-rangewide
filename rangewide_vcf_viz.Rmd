@@ -14,19 +14,12 @@ library(tidyverse) #yes
 library(vcfR) #yes
 library(adegenet) #yes 
 library(Imap) #yes
-library(poppr)
-library(ape)
-library(RColorBrewer)
-library(plotly)
-library(ggrepel)
-library(sp)
+library(poppr) #yes
+library(RColorBrewer) #yes
+library(sp) #yes
 library(sf) #yes
 library(USAboundaries) #yes
-library(rnaturalearth)
-library(leaflet)
-library(leaflet.providers)
 library(reshape2) #yes
-library(caroline)
 library(conStruct) #yes
 library(parallel) #yes
 library(foreach) #yes
@@ -978,3 +971,116 @@ plot(amova.test)
 
 ```
 
+Now let's plot geo vs genetic distance
+
+
+```{r}
+
+#start with fluidigm
+
+samples_loc <- select(vcf.meta, name = "swab_id", lat = "latitude", lon = "longitude", Population = "site_id")
+
+distance.mat.m <- GeoDistanceInMetresMatrix(samples_loc)
+distance.mat.km <- distance.mat.m/1000
+
+
+#calcualte genetic distance
+gen.dist <- poppr::bitwise.dist(gl.range, mat=T)
+
+#convert to matrix
+gen_dist_m <- as.matrix(gen.dist)
+
+#check that they have the same dimensions
+dim(gen_dist_m)
+dim(distance.mat.km)
+
+#check that they are in the right order!! (should be TRUE across the board)
+samples_loc$name == gl.rana$ind.names
+
+#for mantel test
+gen_dist_dist <- as.dist(gen_dist_m)
+geo_km_dist_dist <- as.dist(distance.mat.km)
+
+mantel.rtest(gen_dist_dist, geo_km_dist_dist, nrepet=9999)
+
+#for fluidigm 74
+#mantel r = 0.3201, Simulated p-value: 1e-04 
+
+#for mantel correllogram
+
+corell <- mgram(gen_dist_dist, geo_km_dist_dist, nclass = 20,nperm = 1000,
+mrank = FALSE, nboot = 500, pboot = 0.9, cboot = 0.95,
+alternative = "two.sided", trace = FALSE)
+
+corell_mgram <- corell$mgram
+
+#which are statistically significant
+which(corell$mgram[,3]>0.05)
+
+#change point type based on statistical significance
+point_type <- c(16,16,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1)
+
+plot(corell_mgram[,1],corell_mgram[,3], pch=point_type,xlab="Geographic Distance (km)", ylab="Mantel r")
+lines(corell_mgram[,1],corell_mgram[,3])
+abline(a=0,b=0, lty=3)
+
+#now to make the gen dist vs geo dist plot
+
+plot(distance.mat.km[lower.tri(distance.mat.km)], gen_dist_m[lower.tri(gen_dist_m)], xlab="Geographic Distance (km)", ylab="Genetic Distance")
+abline(lm(gen_dist_m[lower.tri(gen_dist_m)] ~distance.mat.km[lower.tri(distance.mat.km)]), col = "red")
+
+##############
+#now do exome#
+
+samples_loc <- select(vcf.meta.exome, "name", lat = "latitude", lon = "longitude", Population = "site_id")
+
+distance.mat.m <- GeoDistanceInMetresMatrix(samples_loc)
+distance.mat.km <- distance.mat.m/1000
+
+
+#calcualte genetic distance
+gen.dist <- poppr::bitwise.dist(gl.exome, mat=T)
+
+#convert to matrix
+gen_dist_m <- as.matrix(gen.dist)
+
+#check that they have the same dimensions
+dim(gen_dist_m)
+dim(distance.mat.km)
+
+#check that they are in the right order!! (should be TRUE across the board)
+samples_loc$name == gl.exome$ind.names
+
+#for mantel test
+gen_dist_dist <- as.dist(gen_dist_m)
+geo_km_dist_dist <- as.dist(distance.mat.km)
+
+mantel.rtest(gen_dist_dist, geo_km_dist_dist, nrepet=9999)
+
+#for exome 52
+#mantel r = 0.5747, Simulated p-value: 1e-04 
+
+#for mantel correllogram
+
+corell <- mgram(gen_dist_dist, geo_km_dist_dist, nclass = 20,nperm = 1000,
+mrank = FALSE, nboot = 500, pboot = 0.9, cboot = 0.95,
+alternative = "two.sided", trace = FALSE)
+
+corell_mgram <- corell$mgram
+
+#which are statistically significant
+which(corell$mgram[,3]>0.05)
+
+#change point type based on statistical significance
+point_type <- c(16,16,16,1,1,1,16,1,1,1,1,1,1,1,1,1,1,1,1,1)
+
+plot(corell_mgram[,1],corell_mgram[,3], pch=point_type,xlab="Geographic Distance (km)", ylab="Mantel r")
+lines(corell_mgram[,1],corell_mgram[,3])
+abline(a=0,b=0, lty=3)
+
+#now to make the gen dist vs geo dist plot
+
+plot(distance.mat.km[lower.tri(distance.mat.km)], gen_dist_m[lower.tri(gen_dist_m)], xlab="Geographic Distance (km)", ylab="Genetic Distance")
+abline(lm(gen_dist_m[lower.tri(gen_dist_m)] ~distance.mat.km[lower.tri(distance.mat.km)]), col = "red")
+
+```
